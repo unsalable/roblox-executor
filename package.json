@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "test": "node --import ./scripts/test-loader.mjs --test \"src/**/*.test.ts\"",
     "release:version": "node --import ./scripts/test-loader.mjs ./scripts/apply-release-version.mjs",
+    "verify:release": "node scripts/verify-release/check-1.mjs && node scripts/verify-release/check-2.mjs && node scripts/verify-release/check-3.mjs",
     "tauri": "tauri"
   },
   "dependencies": {

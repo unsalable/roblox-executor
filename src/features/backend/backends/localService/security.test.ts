@@ -22,11 +22,12 @@ import { createFakeClock } from "@/lib/testing/fakeClock";
  * diagnostic and no persisted value.
  *
  * The scan covers what ships: `src/`, `src-tauri/src/`, `scripts/`,
- * `index.html` and `package.json`. `experimental/` is deliberately out of
- * scope — nothing there is compiled, bundled, type-checked, tested or loaded
- * (`tsconfig.json` includes `src` only, Vite bundles from `src`, the test glob
- * is `src/**`, and Cargo compiles `src-tauri/src`) — and it contains a parked
- * HTTP relay that would otherwise fail this test for code that does not run.
+ * `index.html` and `package.json`. Two things are deliberately out of scope,
+ * and both are checked below to be genuinely unreachable from the application:
+ * `experimental/`, a parked archive that nothing compiles, bundles, type checks
+ * or loads, and `scripts/verify-release/`, which drives the *built* binary from
+ * outside it — it launches the executable and talks to a debugging port, which
+ * is exactly what this sweep forbids the application itself from doing.
  */
 
 const root = new URL("../../../../../", import.meta.url);
@@ -72,7 +73,17 @@ const sources = (): { file: string; text: string }[] => [
  * checks them, Vite builds from `src/main.tsx`, and Cargo compiles them out of
  * a release build. The files that *do* ship are swept in full.
  */
-const shipped = () => sources().filter(({ file }) => !file.endsWith(".test.ts"));
+const shipped = () =>
+  sources().filter(({ file }) => !file.endsWith(".test.ts") && !file.startsWith(VERIFICATION_HARNESS));
+
+/**
+ * The release verification harness. It is a tool, not part of the product: it
+ * starts the built executable and drives it over WebView2's debugging port, so
+ * it necessarily spawns a process and opens a socket. Excluding it from the
+ * sweep is safe only because nothing in the application can reach it, which is
+ * asserted below rather than assumed.
+ */
+const VERIFICATION_HARNESS = "scripts/verify-release/";
 
 /**
  * Case-sensitive on purpose: these are the exact symbol names, and a
@@ -107,6 +118,47 @@ describe("what the shipped source tree still does not contain", () => {
       }
     }
     assert.deepEqual(hits, [], `the local service must add no capability to reach outside Nova:\n${hits.join("\n")}`);
+  });
+
+  /**
+   * The one exclusion from the sweep above, justified rather than asserted by
+   * comment. The verification harness drives the built binary from outside it,
+   * so it does the very things the application must never do; that is only safe
+   * while nothing in the application can reach it.
+   */
+  test("the release verification harness cannot be reached from the application", () => {
+    // `shipped()` already drops the harness and the test files, which are the
+    // only two things allowed to name it.
+    const reachable = shipped().filter(({ file, text }) => file !== "package.json" && /verify-release/.test(text));
+    assert.deepEqual(
+      reachable.map(({ file }) => file),
+      [],
+      "nothing the application compiles, bundles or loads may reference the harness",
+    );
+
+    // Nor is it in any build input: TypeScript checks `src` only, and Vite
+    // bundles from the entry `index.html` names.
+    const tsconfig = JSON.parse(readFileSync(path("tsconfig.json"), "utf8")) as { include: string[] };
+    assert.deepEqual(tsconfig.include, ["src", "vite.config.ts"], "tsconfig must not reach into scripts/");
+    assert.ok(!readFileSync(path("index.html"), "utf8").includes("scripts/"), "index.html must load nothing from scripts/");
+
+    // package.json may name it -- that is the command that runs it -- but only
+    // as a script, never as an application dependency or a build step.
+    const manifest = JSON.parse(readFileSync(path("package.json"), "utf8")) as {
+      scripts: Record<string, string>;
+      dependencies: Record<string, string>;
+    };
+    const referencing = Object.entries(manifest.scripts)
+      .filter(([, command]) => command.includes("verify-release"))
+      .map(([name]) => name);
+    assert.deepEqual(referencing, ["verify:release"], "only the verification command may run the harness");
+    assert.ok(!manifest.dependencies["verify-release"], "the harness is not a dependency");
+    for (const stage of ["build", "build:web", "dev"]) {
+      assert.ok(
+        !manifest.scripts[stage]?.includes("verify-release"),
+        `the harness must not be part of ${stage}`,
+      );
+    }
   });
 
   test("nothing calls out to a URL, and the only IPC call site is the one bridge module", () => {

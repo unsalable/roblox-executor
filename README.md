@@ -227,8 +227,17 @@ real updater can produce without a network, a release or a packaged build: no up
 update, the same version, an invalid signature, a download failure, an unreachable source,
 malformed release metadata and the successful installation path.
 
-The release binary is additionally driven by hand over the WebView2 debugging port against an
-isolated user-data folder, so a verification run never touches a real profile.
+The built application is checked separately, because no test runner can answer whether the release
+binary starts, whether Monaco takes real keystrokes or whether a workspace survives a restart:
+
+```bash
+npm run build -- --no-bundle
+npm run verify:release        # 55 checks against the built nova.exe
+```
+
+Those drive `nova.exe` over the WebView2 debugging port against a throwaway user-data folder, so a
+verification run never touches a real profile. See
+[scripts/verify-release](scripts/verify-release/README.md).
 
 ## Build
 
