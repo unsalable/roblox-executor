@@ -232,7 +232,7 @@ binary starts, whether Monaco takes real keystrokes or whether a workspace survi
 
 ```bash
 npm run build -- --no-bundle
-npm run verify:release        # 55 checks against the built nova.exe
+npm run verify:release        # 68 checks against the built nova.exe
 ```
 
 Those drive `nova.exe` over the WebView2 debugging port against a throwaway user-data folder, so a

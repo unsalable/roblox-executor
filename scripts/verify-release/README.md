@@ -11,8 +11,8 @@ directory, so it never touches the profile a real install keeps in
 
 ## Running
 
-Build first, then run the three checks **in order** — each one works on the
-state the previous one left behind:
+Build first, then run the four checks **in order** — the first three work on
+the state the previous one left behind:
 
 ```bash
 npm run build -- --no-bundle
@@ -25,6 +25,7 @@ Or one at a time:
 node scripts/verify-release/check-1.mjs   # workspace, editor, Explorer, palette
 node scripts/verify-release/check-2.mjs   # target, execution, debugger, profiler, backend, updates
 node scripts/verify-release/check-3.mjs   # persistence across four launches, and the network scan
+node scripts/verify-release/check-4.mjs   # the real backend: session, authentication, capabilities
 ```
 
 `NOVA_EXE` overrides which executable is driven (an installed copy, for
@@ -39,6 +40,7 @@ instance) and `NOVA_DEBUG_PORT` the debugging port.
 | `check-1.mjs` | Scripts, folders, favourites, search, the editor, the Explorer, the Property Inspector, the command palette, and a scan of what the UI says |
 | `check-2.mjs` | The whole target workflow, execution, the debugger, the profiler, the backend lifecycle and the update flow |
 | `check-3.mjs` | What survives four restarts, what must not, and proof the page never reaches the network |
+| `check-4.mjs` | The Local Service backend: its authenticated session, a restart issuing a new one, the tools it reports as unsupported rather than simulating, and proof its token reaches nothing |
 
 ## Things worth knowing before editing these
 
