@@ -206,7 +206,7 @@ and never reaches the network.
 
 ```bash
 npm run typecheck                    # TypeScript
-npm test                             # 813 unit tests (node:test, no framework)
+npm test                             # 814 unit tests (node:test, no framework)
 npm run build:web                    # typecheck + frontend bundle
 
 cd src-tauri
@@ -249,10 +249,20 @@ npm run build -- --no-bundle     # binary only, no installer
 The binary lands at `src-tauri/target/release/nova.exe` and the installer under
 `src-tauri/target/release/bundle/nsis/`.
 
-A local build produces **no updater artifacts** unless `TAURI_SIGNING_PRIVATE_KEY` is set, because
-`bundle.createUpdaterArtifacts` is on and Tauri refuses to emit an unsigned updater bundle. That is
-deliberate: an unsigned artifact would be refused by every installed copy of Nova anyway, so
-failing at build time is better than discovering it at update time.
+`bundle.createUpdaterArtifacts` is on, so a build also produces the signature the updater verifies
+— which means it needs the signing key:
+
+```bash
+export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.nova/nova-updater.key)"
+export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""   # required even when the key has no password
+npm run build
+```
+
+Set `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` **even for a passwordless key**: without the variable the
+bundler prompts on standard input, and in CI or a non-interactive shell the build simply hangs.
+
+Refusing to emit an unsigned artifact is deliberate: every installed copy of Nova would reject one
+anyway, so failing at build time beats discovering it at update time.
 
 ## Releasing
 
@@ -294,7 +304,9 @@ Then:
    `plugins.updater.pubkey`. It is public by design and belongs in version control.
 2. Add the **private** key's contents as the repository secret `TAURI_SIGNING_PRIVATE_KEY`
    (Settings › Secrets and variables › Actions). If the key has a password, add it as
-   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
+   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`; if it does not, leave that secret unset — the workflow
+   passes it through as an empty string, which is what a passwordless key needs and what keeps the
+   bundler from prompting.
 3. Keep a backup of the private key somewhere safe and offline. **If it is lost, no future release
    can be verified by the copies of Nova already installed**, and every user has to reinstall by
    hand.
