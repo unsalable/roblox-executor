@@ -47,19 +47,48 @@ function rewrite(path, pattern, replacement) {
   writeFileSync(file, after);
 }
 
+/**
+ * Rewrites the `version = "..."` line that follows a marker line, keeping the
+ * file's own line endings.
+ *
+ * Line based rather than one multi-line regular expression, because a Windows
+ * checkout has CRLF line endings and a pattern written with a bare newline
+ * silently matches nothing there — which is exactly how a release build fails
+ * on a runner after passing on a developer's machine.
+ */
+function rewriteVersionAfter(path, marker) {
+  const file = at(path);
+  const before = readFileSync(file, "utf8");
+  // Split after each line terminator, so every line keeps its own.
+  const lines = before.split(/(?<=\n)/);
+
+  const markerIndex = lines.findIndex((line) => line.trimEnd() === marker);
+  if (markerIndex === -1) {
+    console.error(`${path}: no line reading ${JSON.stringify(marker)}; the version could not be stamped.`);
+    process.exit(1);
+  }
+
+  const versionIndex = lines.findIndex((line, index) => index > markerIndex && /^version = "/.test(line));
+  if (versionIndex === -1 || versionIndex > markerIndex + 3) {
+    console.error(`${path}: no version line just after ${JSON.stringify(marker)}; the version could not be stamped.`);
+    process.exit(1);
+  }
+
+  const terminator = /(\r?\n)$/.exec(lines[versionIndex])?.[1] ?? "";
+  lines[versionIndex] = `version = "${version}"${terminator}`;
+  writeFileSync(file, lines.join(""));
+}
+
 // The version the application reports. tauri.conf.json reads this file, so this
 // is the one the binary, the installer and the updater's comparison all use.
 rewrite("package.json", /("version"\s*:\s*)"[^"]*"/, `$1"${version}"`);
 
 // The crate version. Tauri overrides it for the bundle, but leaving it behind
 // would make `cargo` and the application disagree about what this build is.
+// `$` matches before CR as well as LF in JavaScript, so this one is safe as is.
 rewrite("src-tauri/Cargo.toml", /^version = "[^"]*"$/m, `version = "${version}"`);
 
 // Cargo.lock's own entry for this crate, so `cargo build --locked` still works.
-rewrite(
-  "src-tauri/Cargo.lock",
-  /(\[\[package\]\]\nname = "nova"\nversion = )"[^"]*"/,
-  `$1"${version}"`,
-);
+rewriteVersionAfter("src-tauri/Cargo.lock", 'name = "nova"');
 
 console.log(version);
