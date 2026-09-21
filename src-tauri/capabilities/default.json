@@ -1,0 +1,18 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Minimal core permissions for the main window, plus the four window operations the custom title bar needs (drag, minimize, maximize/restore, close), the updater, and the single process operation the updater needs to restart Nova into an installed update. No filesystem, shell, network or process-inspection access is granted: `process:allow-restart` restarts Nova itself and can neither start nor examine another process.",
+  "windows": ["main"],
+  "permissions": [
+    "core:app:default",
+    "core:event:default",
+    "core:window:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-close",
+    "core:webview:default",
+    "updater:default",
+    "process:allow-restart"
+  ]
+}

@@ -1,0 +1,207 @@
+name: Release
+
+# Publishing a release is one action: push a tag.
+#
+#   git tag release-2026-09-21-1350 && git push origin release-2026-09-21-1350
+#
+# Nova has no marketing version. The tag records when the build was made, and
+# `npm run release:version` turns it into the version the application reports
+# and the updater compares — see src/app/releaseVersion.ts.
+#
+# Nothing is published until every gate below has passed and the artifacts the
+# updater needs are confirmed present: the release is built into a draft, and
+# only the last step makes it visible and marks it Latest.
+
+on:
+  push:
+    tags:
+      - "release-*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build, e.g. release-2026-09-21-1350"
+        required: true
+        type: string
+
+# The default token is only allowed to do the one thing this workflow needs.
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build, verify and publish
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out the tagged commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Refuse to build without a signing key
+        shell: bash
+        env:
+          SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          # Checked here so the failure names the cause. Without it the build
+          # fails much later, inside the bundler, with a message about the
+          # updater rather than about a missing repository secret.
+          if [ -z "$SIGNING_KEY" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set. An unsigned build must never be published: every"
+            echo "::error::installed copy of Nova refuses an update it cannot verify. Add the secret and re-run."
+            exit 1
+          fi
+          echo "Signing key is present."
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.18"
+          cache: npm
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache the Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Stamp the release version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(npm run --silent release:version -- '${{ inputs.tag || github.ref_name }}')"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building $VERSION from tag ${{ inputs.tag || github.ref_name }}"
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build the frontend
+        run: npm run build:web
+
+      - name: Check Rust formatting
+        working-directory: src-tauri
+        run: cargo fmt --all -- --check
+
+      - name: Lint Rust
+        working-directory: src-tauri
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Test Rust
+        working-directory: src-tauri
+        run: cargo test
+
+      - name: Build, sign and upload into a draft release
+        id: tauri
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ inputs.tag || github.ref_name }}
+          releaseName: Nova ${{ steps.version.outputs.version }}
+          releaseBody: |
+            Nova build `${{ steps.version.outputs.version }}`.
+
+            Install `Nova_${{ steps.version.outputs.version }}_x64-setup.exe`. An existing
+            installation finds this release by itself and offers to update.
+
+            The updater artifacts (`.nsis.zip`, `.nsis.zip.sig`, `latest.json`) are for
+            in-application updates and do not need to be downloaded by hand.
+          # Built into a draft on purpose: a release becomes visible only after
+          # the verification step below confirms it carries everything an
+          # installed copy of Nova needs in order to update.
+          releaseDraft: true
+          prerelease: false
+          includeUpdaterJson: true
+          args: --verbose
+
+      - name: Verify the release carries everything the updater needs
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ steps.tauri.outputs.releaseId }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${RELEASE_ID:-}" ]; then
+            echo "::error::The build produced no release. Nothing is published."
+            exit 1
+          fi
+
+          ASSETS="$(gh api "repos/${{ github.repository }}/releases/$RELEASE_ID/assets" --paginate --jq '.[].name')"
+          echo "Assets:"; echo "$ASSETS" | sed 's/^/  /'
+
+          fail=0
+          require() {
+            if ! echo "$ASSETS" | grep -qE "$1"; then
+              echo "::error::missing required artifact: $2"
+              fail=1
+            fi
+          }
+
+          # The installer a person downloads.
+          require '.*-setup\.exe$'            'NSIS installer (*-setup.exe)'
+          # What the updater downloads, and the signature it is verified against.
+          require '.*\.nsis\.zip$'            'updater bundle (*.nsis.zip)'
+          require '.*\.nsis\.zip\.sig$'       'updater signature (*.nsis.zip.sig)'
+          # What an installed Nova reads to learn a newer build exists.
+          require '^latest\.json$'            'updater manifest (latest.json)'
+
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::The draft release is incomplete and will not be published."
+            exit 1
+          fi
+
+          # The manifest has to name the version that was actually built, and
+          # carry a signature: a manifest with an empty signature would be
+          # refused by every installed copy of Nova.
+          MANIFEST_URL="$(gh api "repos/${{ github.repository }}/releases/$RELEASE_ID/assets" --paginate \
+            --jq '.[] | select(.name == "latest.json") | .url')"
+          gh api -H "Accept: application/octet-stream" "$MANIFEST_URL" > latest.json
+          node -e "
+            const m = require('./latest.json');
+            const want = process.env.VERSION;
+            if (m.version !== want) { console.error('::error::latest.json says ' + m.version + ', built ' + want); process.exit(1) }
+            const win = (m.platforms || {})['windows-x86_64'];
+            if (!win || !win.url || !win.signature) { console.error('::error::latest.json has no signed windows-x86_64 entry'); process.exit(1) }
+            console.log('latest.json names ' + m.version + ' with a signature of ' + win.signature.length + ' characters');
+          "
+
+      - name: Publish the release and mark it Latest
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ steps.tauri.outputs.releaseId }}
+        run: |
+          set -euo pipefail
+          gh api -X PATCH "repos/${{ github.repository }}/releases/$RELEASE_ID" \
+            -F draft=false -F prerelease=false -f make_latest=true > /dev/null
+          echo "Published https://github.com/${{ github.repository }}/releases/tag/${{ inputs.tag || github.ref_name }}"
+
+      - name: Discard the draft if anything failed
+        if: failure() && steps.tauri.outputs.releaseId != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # A half-built release must not sit in the repository looking real.
+          gh api -X DELETE "repos/${{ github.repository }}/releases/${{ steps.tauri.outputs.releaseId }}" || true
+          echo "Removed the incomplete draft release."

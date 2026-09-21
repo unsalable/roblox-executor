@@ -1,0 +1,350 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+
+  /* Surfaces */
+  --background: #0b0d10;
+  --foreground: #e7eaf0;
+  --surface: #12161c;
+  --surface-secondary: #191e26;
+  --surface-raised: #1f2530;
+  --border: #262c36;
+  --border-strong: #343c48;
+  --muted: #8a93a3;
+  --subtle: #5f6875;
+
+  /* Accent */
+  --accent: #5b8cff;
+  --accent-hover: #7aa2ff;
+  --accent-pressed: #4a78e6;
+  --accent-soft: #5b8cff26;
+  --accent-foreground: #06080c;
+
+  /* Semantic status */
+  --danger: #f2555a;
+  --danger-soft: #f2555a24;
+  --warning: #eab364;
+  --warning-soft: #eab36424;
+  --success: #4ec9a5;
+  --success-soft: #4ec9a524;
+
+  /* Chrome */
+  --overlay: rgb(4 6 9 / 0.66);
+  --focus: #8fb0ff;
+
+  /* Editor syntax */
+  --code-plain: #cbd2de;
+  --code-comment: #5f6875;
+  --code-keyword: #c792ea;
+  --code-string: #9ece6a;
+  --code-number: #ff9e64;
+  --code-function: #7aa2f7;
+  --code-global: #e0af68;
+  --code-punct: #8a93a3;
+  --code-line: #4b5361;
+  --code-active-line: #ffffff08;
+
+  /* Typography (plain variables so the editor can read the stacks at runtime) */
+  --font-family-sans: "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-family-mono: "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+
+  /* Motion */
+  --dur-fast: 110ms;
+  --dur-base: 170ms;
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  --background: #f6f7f9;
+  --foreground: #10141a;
+  --surface: #ffffff;
+  --surface-secondary: #eef0f4;
+  --surface-raised: #e4e8ee;
+  --border: #d8dce3;
+  --border-strong: #c1c7d1;
+  --muted: #5d6675;
+  --subtle: #7b8493;
+
+  --accent: #2f5fe0;
+  --accent-hover: #4472e8;
+  --accent-pressed: #244fc4;
+  --accent-soft: #2f5fe01f;
+  --accent-foreground: #ffffff;
+
+  --danger: #c8353a;
+  --danger-soft: #c8353a1f;
+  --warning: #9a6a12;
+  --warning-soft: #9a6a121f;
+  --success: #167a5e;
+  --success-soft: #167a5e1f;
+
+  --overlay: rgb(15 23 42 / 0.38);
+  --focus: #2f5fe0;
+
+  --code-plain: #1f2530;
+  --code-comment: #6b7280;
+  --code-keyword: #7c3aed;
+  --code-string: #0f7a3d;
+  --code-number: #b45309;
+  --code-function: #1d4ed8;
+  --code-global: #92400e;
+  --code-punct: #5d6675;
+  --code-line: #9aa2b1;
+  --code-active-line: #0b0d1008;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-secondary: var(--surface-secondary);
+  --color-surface-raised: var(--surface-raised);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-pressed: var(--accent-pressed);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+
+  --color-overlay: var(--overlay);
+  --color-focus: var(--focus);
+
+  --color-code-plain: var(--code-plain);
+  --color-code-comment: var(--code-comment);
+  --color-code-keyword: var(--code-keyword);
+  --color-code-string: var(--code-string);
+  --color-code-number: var(--code-number);
+  --color-code-function: var(--code-function);
+  --color-code-global: var(--code-global);
+  --color-code-punct: var(--code-punct);
+  --color-code-line: var(--code-line);
+
+  --font-sans: var(--font-family-sans);
+  --font-mono: var(--font-family-mono);
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    overflow: hidden;
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* The shell is chrome, not a document: only explicitly marked areas select. */
+  body {
+    user-select: none;
+    cursor: default;
+  }
+
+  input,
+  textarea {
+    user-select: text;
+  }
+
+  input[type="search"]::-webkit-search-cancel-button {
+    appearance: none;
+  }
+
+  /* Tree rows draw their own focus ring so a focused folder does not outline its whole subtree. */
+  .tree-item:focus-visible {
+    outline: none;
+  }
+
+  .tree-item:focus-visible > .tree-row {
+    outline: 2px solid var(--focus);
+    outline-offset: -2px;
+  }
+
+  ::selection {
+    background-color: var(--accent-soft);
+    color: var(--foreground);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+    border-radius: 3px;
+  }
+
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* Monaco's hidden input element sits at the caret; the editor draws its own focus state. */
+  .monaco-editor .native-edit-context:focus-visible,
+  .monaco-editor textarea.inputarea:focus-visible {
+    outline: none;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--border-strong);
+    background-clip: content-box;
+    border: 3px solid transparent;
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--muted);
+    background-clip: content-box;
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
+
+@layer utilities {
+  .select-text-area {
+    user-select: text;
+    cursor: text;
+  }
+
+  .animate-overlay-in {
+    animation: overlay-in var(--dur-base) var(--ease-out);
+  }
+
+  .animate-dialog-in {
+    animation: dialog-in var(--dur-base) var(--ease-out);
+  }
+
+  .animate-menu-in {
+    animation: menu-in var(--dur-fast) var(--ease-out);
+  }
+
+  .animate-row-in {
+    animation: row-in var(--dur-base) var(--ease-out);
+  }
+
+  .animate-fade-in {
+    animation: overlay-in var(--dur-base) var(--ease-out);
+  }
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.99);
+  }
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/*
+ * Debugger decorations in the editor.
+ *
+ * Monaco renders these class names itself, outside Tailwind's layers, so they
+ * are declared unlayered here — that is also what lets them sit above the
+ * editor's own line styles. Colours come from the same tokens as the rest of
+ * the shell, so both themes are covered.
+ */
+.nova-glyph-breakpoint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.nova-glyph-breakpoint::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background-color: var(--danger);
+  border: 2px solid var(--danger);
+  box-sizing: border-box;
+}
+
+/* A disabled breakpoint keeps its place but is drawn hollow. */
+.nova-glyph-breakpoint-off::before {
+  background-color: transparent;
+  opacity: 0.75;
+}
+
+.monaco-editor .margin-view-overlays .nova-debug-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.monaco-editor .margin-view-overlays .nova-debug-arrow::before {
+  content: "";
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 7px solid var(--warning);
+}
+
+.monaco-editor .view-overlays .nova-debug-line {
+  background-color: var(--warning-soft);
+  border-left: 2px solid var(--warning);
+}

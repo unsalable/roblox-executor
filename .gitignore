@@ -1,0 +1,25 @@
+node_modules
+dist
+dist-ssr
+*.local
+.vite
+
+src-tauri/target
+src-tauri/gen
+
+experimental/studio-bridge/plugin/build
+
+# Updater signing keys. The private key is never in this repository: it lives
+# outside it and reaches a release only as a GitHub Actions secret. These
+# patterns are here so a key copied in by accident cannot be committed.
+*.key
+*.pem
+*.pfx
+*.p12
+
+# Local environment files. `*.local` above already covers `.env.local`.
+.env
+.env.*
+
+.DS_Store
+Thumbs.db
