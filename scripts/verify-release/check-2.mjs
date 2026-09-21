@@ -319,20 +319,29 @@ try {
   // ----------------------------------------------------------------- updates
   report.section("Updates");
 
-  await report.check("the update check does not interrupt anything when it fails", async () => {
-    // No release exists yet, so the check cannot resolve one. The requirement
-    // is that nothing is shown and the application stays usable.
-    await sleep(5000);
+  await report.check("a check nobody asked for never reports a failure", async () => {
+    /*
+     * The startup check has long since fired by the time this runs. Whether it
+     * found anything depends on what is published: a locally built binary
+     * carries the development version, so a release will be offered; with the
+     * source unreachable, nothing should be shown at all. The invariant either
+     * way is that a check the user did not ask for never opens a failure.
+     */
+    await sleep(3000);
     const dialog = await session.eval(`
       (() => {
         const d = document.querySelector('[role="dialog"]');
-        return d ? d.innerText.slice(0, 160) : null;
+        return d ? d.innerText.split(String.fromCharCode(10)).join(" | ") : null;
       })()
     `);
-    assert(dialog === null, `a dialog interrupted the user: ${dialog}`);
+    if (dialog !== null) {
+      assert(!/update failed/i.test(dialog), `a silent check opened a failure: ${dialog.slice(0, 140)}`);
+      assert(/update available/i.test(dialog), `an unexpected dialog is open: ${dialog.slice(0, 140)}`);
+      await closeDialog(session);
+    }
     const usable = await session.eval(q(".view-line, [role='tablist']"));
     assert(usable, "the shell is not usable");
-    return "no prompt, shell usable";
+    return dialog === null ? "nothing shown, shell usable" : "an update was offered, and dismissed";
   });
 
   await report.check("Check for Updates is in the command palette", async () => {
