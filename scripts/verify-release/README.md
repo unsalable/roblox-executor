@@ -62,3 +62,42 @@ instance) and `NOVA_DEBUG_PORT` the debugging port.
   rather than immediately.
 - **A click that closes the window** leaves the pending debugging call
   unresolved; fire it from inside a `setTimeout` in the page.
+
+## Testing the updater end to end
+
+The checks above exercise the update flow against a scripted provider and
+against the real release source, but they cannot prove that one published build
+installs another — that needs two releases and a real installation.
+
+When it is worth doing (after changing anything in `src/features/updates`, the
+updater configuration, or the signing key):
+
+1. Publish a release, then install it somewhere disposable:
+
+   ```bash
+   gh release download <tag> --pattern "*-setup.exe" --dir .
+   ./Nova_<version>_x64-setup.exe /S /D=C:\Users\<you>\AppData\Local\NovaUpdateTest
+   ```
+
+   `/D` must come last and must not be quoted.
+
+2. Launch the installed copy against a throwaway profile and confirm it reports
+   the version you installed:
+
+   ```bash
+   NOVA_EXE=C:\Users\<you>\AppData\Local\NovaUpdateTest\Nova.exe \
+     node scripts/verify-release/check-1.mjs
+   ```
+
+3. Publish a second release with a later tag.
+
+4. Launch the installed copy again and run **Check for Updates**. It should
+   offer the newer build, download it, verify its signature, install it and
+   offer to restart. Confirm afterwards that the installed copy reports the new
+   version and that its workspace, breakpoints and settings are untouched.
+
+5. Uninstall: `C:\Users\<you>\AppData\Local\NovaUpdateTest\uninstall.exe /S`.
+
+A signature that does not verify is the case that matters most and the hardest
+to stage; `updateController.test.ts` covers it directly, by handing the
+controller the exact failure the updater reports.
