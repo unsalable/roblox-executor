@@ -261,8 +261,9 @@ npm run build
 Set `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` **even for a passwordless key**: without the variable the
 bundler prompts on standard input, and in CI or a non-interactive shell the build simply hangs.
 
-Refusing to emit an unsigned artifact is deliberate: every installed copy of Nova would reject one
-anyway, so failing at build time beats discovering it at update time.
+Without the key the build gets as far as the installer and then stops with *"A public key has been
+found, but no private key"*. That is deliberate: every installed copy of Nova would reject an
+unsigned artifact anyway, so failing at build time beats discovering it at update time.
 
 ## Releasing
 
