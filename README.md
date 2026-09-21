@@ -287,6 +287,11 @@ and what the updater downloads too — Tauri signs the installer itself rather t
 archive), `Nova_<version>_x64-setup.exe.sig` (the signature it is verified against) and
 `latest.json` (what an installed Nova reads to learn a newer build exists).
 
+No portable build is published, deliberately. Updating means running the installer, so a copy that
+was never installed would be left sitting where it was while a second, installed Nova appeared
+somewhere else — a confusing outcome for a feature whose whole job is to replace the build you are
+running.
+
 ### Signing key
 
 The updater's private key never enters this repository, the source, or the installer. `*.key`,
