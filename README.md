@@ -258,10 +258,14 @@ git push origin release-2026-09-21-1350
 stamps the version derived from the tag into `package.json`, `Cargo.toml` and `Cargo.lock`; runs
 typecheck, the unit tests, the frontend build, `cargo fmt --check`, `cargo clippy -D warnings` and
 `cargo test`; builds and signs the application; uploads the artifacts into a **draft** release;
-verifies that the draft carries the installer, the updater bundle, its signature and a
-`latest.json` naming the version that was actually built with a non-empty signature; and only then
-publishes the release and marks it **Latest**. If any step fails, the draft is deleted and nothing
-is published.
+verifies that the draft carries the installer, its detached signature and a `latest.json` naming
+the version that was actually built with a non-empty signature; and only then publishes the release
+and marks it **Latest**. If any step fails, the draft is deleted and nothing is published.
+
+A release therefore carries three files: `Nova_<version>_x64-setup.exe` (what a person downloads,
+and what the updater downloads too — Tauri signs the installer itself rather than a separate
+archive), `Nova_<version>_x64-setup.exe.sig` (the signature it is verified against) and
+`latest.json` (what an installed Nova reads to learn a newer build exists).
 
 ### Signing key
 

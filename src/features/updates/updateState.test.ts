@@ -163,14 +163,13 @@ describe("which failures the user is shown", () => {
     }
   });
 
-  it("stays silent about being offline when Nova asked by itself", () => {
-    assert.equal(shouldReportFailure(updateError("NETWORK_UNAVAILABLE"), false), false);
-    assert.equal(shouldReportFailure(updateError("UPDATER_UNAVAILABLE"), false), false);
-  });
-
-  it("still reports a bad signature found by a check nobody asked for", () => {
-    assert.equal(shouldReportFailure(updateError("SIGNATURE_INVALID"), false), true);
-    assert.equal(shouldReportFailure(updateError("RELEASE_MALFORMED"), false), true);
+  it("never interrupts over a check Nova started by itself", () => {
+    // Whatever went wrong, the user did not ask and mostly cannot act on it.
+    // An "Update failed" box on every launch is the interruption a silent
+    // check exists to avoid; the console still records every one of them.
+    for (const code of codes) {
+      assert.equal(shouldReportFailure(updateError(code), false), false, code);
+    }
   });
 
   it("carries details only when there are some", () => {

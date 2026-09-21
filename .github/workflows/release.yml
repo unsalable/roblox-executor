@@ -112,6 +112,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          # Must be present even when the key has no password: without the variable
+          # set, the bundler prompts on stdin and the job hangs until it is killed.
+          # A missing secret resolves to an empty string, which is what a
+          # passwordless key needs.
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ inputs.tag || github.ref_name }}
@@ -122,8 +126,9 @@ jobs:
             Install `Nova_${{ steps.version.outputs.version }}_x64-setup.exe`. An existing
             installation finds this release by itself and offers to update.
 
-            The updater artifacts (`.nsis.zip`, `.nsis.zip.sig`, `latest.json`) are for
-            in-application updates and do not need to be downloaded by hand.
+            `*.sig` and `latest.json` are what the in-application updater reads. The
+            signature covers the installer above, and Nova verifies it against the public
+            key built into the application before installing anything.
           # Built into a draft on purpose: a release becomes visible only after
           # the verification step below confirms it carries everything an
           # installed copy of Nova needs in order to update.
@@ -157,11 +162,12 @@ jobs:
             fi
           }
 
-          # The installer a person downloads.
+          # The installer a person downloads -- and, in Tauri's v2 updater format,
+          # the very artifact the updater downloads too: the installer itself is
+          # what is signed, rather than a separate archive.
           require '.*-setup\.exe$'            'NSIS installer (*-setup.exe)'
-          # What the updater downloads, and the signature it is verified against.
-          require '.*\.nsis\.zip$'            'updater bundle (*.nsis.zip)'
-          require '.*\.nsis\.zip\.sig$'       'updater signature (*.nsis.zip.sig)'
+          # The detached signature that installer is verified against.
+          require '.*-setup\.exe\.sig$'       'updater signature (*-setup.exe.sig)'
           # What an installed Nova reads to learn a newer build exists.
           require '^latest\.json$'            'updater manifest (latest.json)'
 

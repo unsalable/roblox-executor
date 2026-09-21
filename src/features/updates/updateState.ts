@@ -69,15 +69,24 @@ export function isUpdateInstalling(status: UpdateStatus): boolean {
 }
 
 /**
- * Errors Nova asked for and can do nothing about. A check Nova started by
- * itself stays silent for these: a laptop that is offline has not encountered
- * a problem, and saying so on every launch would be noise.
+ * True when a failed update check should interrupt the user.
+ *
+ * Only a check the user asked for does. A check Nova started by itself has no
+ * business opening a dialog about its own background activity, whatever went
+ * wrong: the user did not ask, cannot act on most of it, and an "Update failed"
+ * box on every launch — because the machine is offline, because a captive
+ * portal answered with a login page, because no release has been published yet
+ * — is exactly the interruption a silent check is supposed to avoid.
+ *
+ * Nothing is hidden: every failure is written to the console either way, with
+ * its code and the updater's own text, and Check for Updates always reports
+ * what it finds.
+ *
+ * A failure while *installing* is never silent, because installing only ever
+ * happens because the user pressed Update.
  */
-const SILENT_CODES: readonly UpdateErrorCode[] = ["NETWORK_UNAVAILABLE", "UPDATER_UNAVAILABLE"];
-
-/** True when a failed background check should be reported to the user. */
-export function shouldReportFailure(error: UpdateError, manual: boolean): boolean {
-  return manual || !SILENT_CODES.includes(error.code);
+export function shouldReportFailure(_error: UpdateError, manual: boolean): boolean {
+  return manual;
 }
 
 /**

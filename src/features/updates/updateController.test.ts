@@ -108,14 +108,24 @@ describe("an update check", () => {
     assert.equal(h.controller.getSnapshot().promptOpen, true);
   });
 
-  it("malformed release metadata is reported even to a check nobody asked for", async () => {
+  it("malformed release metadata is recorded but does not interrupt a silent check", async () => {
+    // This is what a release source with nothing published yet answers, and
+    // what a captive portal answers. Neither is worth a dialog on launch.
     h.provider.answerFailure(new Error("error decoding response body: expected value at line 1 column 1"));
     await h.controller.check();
 
     const snapshot = h.controller.getSnapshot();
     assert.equal(snapshot.error?.code, "RELEASE_MALFORMED");
-    assert.equal(snapshot.promptOpen, true, "a broken release source is not normal and is worth saying");
+    assert.equal(snapshot.promptOpen, false, "a check nobody asked for must not open a dialog");
     assert.equal(snapshot.release, null);
+  });
+
+  it("the same failure is shown when the user asked", async () => {
+    h.provider.answerFailure(new Error("error decoding response body: expected value at line 1 column 1"));
+    await h.controller.check({ manual: true });
+
+    assert.equal(h.controller.getSnapshot().error?.code, "RELEASE_MALFORMED");
+    assert.equal(h.controller.getSnapshot().promptOpen, true);
   });
 
   it("a build that cannot update itself says so instead of pretending to check", async () => {
